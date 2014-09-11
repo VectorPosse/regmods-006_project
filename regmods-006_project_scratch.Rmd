@@ -1,0 +1,184 @@
+---
+title: "regmods-006_project scratch work"
+output:
+  html_document:
+    keep_md: yes
+  pdf_document: default
+---
+
+## Preliminaries
+
+```{r message=FALSE}
+library("Hmisc")
+library("MASS")
+library("car")
+library("dplyr")
+library("ggplot2")
+library("GGally")
+```
+
+This is a suite of diagnostics that one can run on model fits, so I might as well package them up in a function.
+
+```{r}
+dfit <- function(fit, summary = TRUE, ANOVA = TRUE,
+                 outlierTest = TRUE, QQ = TRUE, leveragePlots = TRUE, Cook = TRUE,
+                 influencePlot = TRUE,
+                 ncvTest = TRUE, residualPlots = TRUE,
+                 ResidFitted = TRUE, ScaleLocation = TRUE, ResidLeverage = TRUE,
+                 vif = TRUE) {
+    ## SUMMARY ##
+    if (summary) {
+        print("SUMMARY:")
+        print(summary(fit))
+    }
+    if (ANOVA) {
+        print("ANOVA:")
+        print(anova(fit))
+    }
+    
+    ## OUTLIERS, INFLUENCE, AND LEVERAGE ##
+    if (outlierTest) {
+        print("OUTLIER TEST:")
+        print(outlierTest(fit))
+    }
+    if (QQ) {
+        plot(fit, which = 2)
+    }
+    if (leveragePlots) {
+        print(leveragePlots(fit, main = "Leverage Plots"))
+    }
+    if (Cook) {
+        cutoff <- 4/((nrow(fit$model)-length(fit$coefficients)-2)) # D > 4/(n-k-1)  
+        plot(fit, which=4, cook.levels=cutoff) # Cook's Distance
+    }
+    if (influencePlot) {
+        print(influencePlot(fit, main="Influence Plot",
+                            sub="Circle size is proportial to Cook's Distance"))
+    }
+
+    
+    ## RESIDUALS AND HOMOSKEDASTICITY ##
+    if (ncvTest) {
+        print("NCV TEST:")
+        print(ncvTest(fit))
+    }
+    if (residualPlots) {
+        print(residualPlots(fit, main = "Residual Plots:"))
+    }
+    if (ResidFitted) {
+        plot(fit, which = 1)
+    }
+    if (ScaleLocation) {
+        plot(fit, which = 3)
+    }
+    if (ResidLeverage) {
+        plot(fit, which = 5)
+    }
+    
+    ## MULTICOLLINEARITY ##
+    if (vif) {
+        print("VIF:")
+        print(vif(fit))
+    }
+}
+```
+
+Convert factor variables.
+```{r}
+mtcars2 <- mtcars %>%
+    mutate(cyl = factor(cyl),
+           vs = factor(vs, levels = c(0, 1), labels = c("V", "S")),
+           am = factor(am, levels = c(0, 1), labels = c("Automatic", "Manual")),
+           gear = factor(gear, levels = c(3, 4, 5)))
+```
+
+## EDA
+
+Basic summary:
+```{r}
+mpg_by_am <- mtcars2 %>%
+    group_by(am) %>%
+    summarise(mean(mpg), sd(mpg))
+mpg_by_am
+ggplot(data = mtcars2, aes(x = am, y = mpg)) +
+    geom_boxplot() +
+    xlab("Transmission") +
+    ylab("MPG")
+```
+
+Scatterplot matrices with correlation tables.
+
+(Note. Significant when $|r| > 0.349$.)
+
+```{r cache=TRUE, fig.width=10, fig.height=10}
+mtcars_num <- mtcars2 %>%
+    select(mpg, disp, hp, drat, wt, qsec, carb)
+mtcars_cat <- mtcars2 %>%
+    select(mpg, wt, cyl, vs, am, gear)
+ggpairs(mtcars_num)
+ggpairs(mtcars_cat)
+```
+
+(Note that our factor variables are all associated with weight as well.)
+
+
+
+## mpg ~ am
+
+(This is just one-way ANOVA with two categories, which is really just a two-sample t-test.)
+
+```{r}
+fit1 <- lm(mpg ~ am, data = mtcars2)
+dfit(fit1, vif = FALSE)
+```
+
+Equivalent to a two-sample t-test with equal variances assumed. ($F = t^{2}$.)
+
+```{r}
+fit_t1 <- t.test(mpg ~ am, var.equal = TRUE, data = mtcars2)
+fit_t1
+all.equal(anova(fit1)$F[1], (fit_t1$statistic)^2, check.attributes = FALSE)
+```
+
+It is more correct, however, to perform Welch's t-test:
+
+```{r}
+fit_t2 <- t.test(mpg ~ am, data = mtcars2)
+fit_t2
+```
+
+## mpg ~ .
+
+```{r}
+fit_all <- lm(mpg ~ ., data = mtcars2)
+dfit(fit_all)
+```
+
+## mpg ~ am + qsec
+
+```{r}
+fit2 <- lm(mpg ~ am + qsec, data = mtcars2)
+dfit(fit2)
+```
+
+## mpg ~ am + wt
+
+```{r}
+fit3 <- lm(mpg ~ am + wt, data = mtcars2)
+dfit(fit3)
+```
+
+## mpg ~ am + wt + qsec
+
+Recommended by `stepAIC`.
+
+```{r}
+fit4 <- lm(mpg ~ am + wt + qsec, data = mtcars2)
+dfit(fit4)
+```
+
+Note that we have improvement in model fit for all steps except the last.
+```{r}
+anova(fit1, fit3, fit4, fit_all)
+anova(fit1, fit2, fit4, fit_all)
+```
