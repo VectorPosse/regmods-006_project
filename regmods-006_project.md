@@ -58,7 +58,7 @@ Since weight is highly correlated with mpg, we add it into the model. However, s
 
 So controlling for weight and quarter-mile time, we see that manual trasmission is still predicted to increase MPG by about 3. Of course, this difference may be statistically significant, but not of much practical significance.
 
-Probably, the most helpful diagnostic plot is given by the `influencePlot` command in the `car` package. Figure 4 in the Appendix shows in one plot the studentized residuals, hat values to measure leverage, and Cook's distance to measure influence. The model is not perfect: while the data is relatively homoscedastic, the 9th data point (the Merc 230) has high leverage and some influence, and the 17th data point (the Chrysler Imperial) is not quite as high leverage, but exerts even more influence. In neither case, though, does the Cook's distance exceed 0.5.
+Probably, the most helpful diagnostic plot is given by the `influencePlot` command in the `car` package. Figure 4 in the Appendix shows in one plot the studentized residuals, hat values to measure leverage, and Cook's distance to measure influence. The model is not perfect: while the data is relatively homoscedastic, the 9th data point (the Merc 230) has high leverage and some influence, and the 17th data point (the Chrysler Imperial) is not quite as high leverage, but exerts even more influence.
 
 Although I believe that stepwise regression is evil, it is gratifying that a bidirectional stepwise regression algorithm (`stepAIC` from the `MASS` package) produces this very model.
 
