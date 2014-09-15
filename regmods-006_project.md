@@ -1,172 +1,79 @@
-# regmods-006_project
+# Course Project for Regression Models
+
+## Executive Summary
+
+The dataset `mtcars` contains data on fuel consumption and ten aspects of automobile design and performance for 32 automobiles (1973--74 models). Linear regression analysis shows that automatic transmission vehicles from that year had worse gas mileage than manual tramission vehicles. After controlling for other factors (like weight, for example) that are also related to fuel efficiency, MPG is still lower for automatic transmission vehicles, but not by a substantial margin.
+
+(Note: due to the brevity of this report, I will not echo any R code.)
 
 
-```r
-library("dplyr")
-library("ggplot2")
-```
 
-Convert factor variables.
+## Exploratory data analysis
 
-```r
-mtcars <- mtcars %>%
-    mutate(cyl = factor(cyl),
-           vs = factor(vs, levels = c(0, 1), labels = c("V", "S")),
-           am = factor(am, levels = c(0, 1), labels = c("Automatic", "Manual")))
-```
+To begin with, the simplest analysis is just to compare the center and spread for MPG among automatic transmission vehicles to that of manual transmission vehicles. Figure 1 in the Appendix shows a boxplot in which it is evident that MPG is lower for cars with automatic transmission.
 
-Basic summary:
+We will also be interested in associations between the variables. It seems likely, _a priori_, that many of the measurements will be correlated with MPG and with each other. There are two plots in the Appendix (Figures 2 and 3) that show these relationships, one for the collection of quantitative variables and the other relating MPG to the categorical variables. Because weight is seen to be highly correlated to many other variables, it is also included in Figure 3. (Note: With a sample size of 32, correlations are statistically signficant when $|r| > 0.349$.) MPG appears to be associated with everything. Among the covariates, weight is most strongly correlated with MPG and with just about everything else, except qsec, the quarter-mile time.
 
-```r
-mpg_by_am <- mtcars %>%
-    group_by(am) %>%
-    summarize(mean(mpg), sd(mpg))
-mpg_by_am
-```
+## Regression modeling
+
+### mpg ~ am
+
+The simplest linear model compares transmission to MPG directly. This is just one-way ANOVA with two categories, which is mathematically equivalent to an independent samples t-test. ($F = t^2$)
+
 
 ```
-## Source: local data frame [2 x 3]
-## 
-##          am mean(mpg) sd(mpg)
-## 1 Automatic     17.15   3.834
-## 2    Manual     24.39   6.167
+## (Intercept)    amManual 
+##      17.147       7.245
 ```
 
-```r
-ggplot(data = mtcars, aes(x = am, y = mpg)) +
-    geom_boxplot() +
-    xlab("Transmission") +
-    ylab("MPG")
-```
+This simply says that the mean MPG for cars with automatic transmission is 17.1474 and that the mean MPG for manual transmission cars is 7.2449 more.
 
-![plot of chunk unnamed-chunk-3](./regmods-006_project_files/figure-html/unnamed-chunk-3.png) 
+### mpg ~ am + wt + qsec
 
-Linear model for mpg ~ am. (This is just one-way ANOVA.)
+Since weight is highly correlated with mpg, we add it into the model. However, since everything else is highly correlated with weight and mpg, we would have a problem with multicollinearity if we included much more. The only additional variable that seems to give much extra predictive power to the model is qsec, which makes sense because qsec was largely uncorrelated to weight, but still somewhat correlated to mpg.
 
-```r
-fit1 <- lm(mpg~ am, data = mtcars)
-summary(fit1)
-```
 
 ```
 ## 
 ## Call:
-## lm(formula = mpg ~ am, data = mtcars)
+## lm(formula = mpg ~ am + wt + qsec, data = mtcars2)
 ## 
 ## Residuals:
 ##    Min     1Q Median     3Q    Max 
-## -9.392 -3.092 -0.297  3.244  9.508 
+## -3.481 -1.556 -0.726  1.411  4.661 
 ## 
 ## Coefficients:
 ##             Estimate Std. Error t value Pr(>|t|)    
-## (Intercept)    17.15       1.12   15.25  1.1e-15 ***
-## amManual        7.24       1.76    4.11  0.00029 ***
+## (Intercept)    9.618      6.960    1.38  0.17792    
+## amManual       2.936      1.411    2.08  0.04672 *  
+## wt            -3.917      0.711   -5.51    7e-06 ***
+## qsec           1.226      0.289    4.25  0.00022 ***
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ## 
-## Residual standard error: 4.9 on 30 degrees of freedom
-## Multiple R-squared:  0.36,	Adjusted R-squared:  0.338 
-## F-statistic: 16.9 on 1 and 30 DF,  p-value: 0.000285
+## Residual standard error: 2.46 on 28 degrees of freedom
+## Multiple R-squared:  0.85,	Adjusted R-squared:  0.834 
+## F-statistic: 52.7 on 3 and 28 DF,  p-value: 1.21e-11
 ```
 
-```r
-anova1 <- anova(fit1)
-anova1
-```
+So controlling for weight and quarter-second time, we see that manual trasmission is still predicted to increase MPG by about 3. Of course, this difference may be statistically significant, but not of much practical significance.
+
+Probably, the most helpful diagnostic plot is given by the `influencePlot` command in the `car` package. Figure 4 in the Appendix shows in one plot the studentized residuals, hat values to measure leverage, and Cook's distance to measure influence. The model is not perfect: while the data is relatively homoscedastic, the 9th data point (the Merc 230) has high leverage and some influence, and the 17th data point (the Chrysler Imperial) is not quite as high leverage, but exerts even more influence. In neither case, though, does the Cook's distance exceed 0.5.
+
+Although I believe that stepwise regression is evil, it is gratifying that a bidirectional stepwise regression algorithm (`stepAIC` from the `MASS` package) produces this very model.
+
+## Appendix
+
+![plot of chunk unnamed-chunk-4](./regmods-006_project_files/figure-html/unnamed-chunk-4.png) 
+
+![plot of chunk unnamed-chunk-5](./regmods-006_project_files/figure-html/unnamed-chunk-5.png) 
+
+![plot of chunk unnamed-chunk-6](./regmods-006_project_files/figure-html/unnamed-chunk-6.png) 
+
+![plot of chunk unnamed-chunk-7](./regmods-006_project_files/figure-html/unnamed-chunk-7.png) 
 
 ```
-## Analysis of Variance Table
-## 
-## Response: mpg
-##           Df Sum Sq Mean Sq F value  Pr(>F)    
-## am         1    405     405    16.9 0.00029 ***
-## Residuals 30    721      24                    
-## ---
-## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-```
-Equivalent to a two-sample t-test with equal variances assumed. ($F = t^{2}$.)
-
-```r
-fit_t1 <- t.test(mpg ~ am, var.equal = TRUE, data = mtcars)
-fit_t1
-```
-
-```
-## 
-## 	Two Sample t-test
-## 
-## data:  mpg by am
-## t = -4.106, df = 30, p-value = 0.000285
-## alternative hypothesis: true difference in means is not equal to 0
-## 95 percent confidence interval:
-##  -10.848  -3.642
-## sample estimates:
-## mean in group Automatic    mean in group Manual 
-##                   17.15                   24.39
-```
-
-```r
-all.equal(anova1$F[1], (fit_t1$statistic)^2, check.attributes = FALSE)
-```
-
-```
-## [1] TRUE
-```
-It is more correct, however, to perform Welch's t-test:
-
-```r
-fit_t2 <- t.test(mpg ~ am, data = mtcars)
-fit_t2
-```
-
-```
-## 
-## 	Welch Two Sample t-test
-## 
-## data:  mpg by am
-## t = -3.767, df = 18.33, p-value = 0.001374
-## alternative hypothesis: true difference in means is not equal to 0
-## 95 percent confidence interval:
-##  -11.28  -3.21
-## sample estimates:
-## mean in group Automatic    mean in group Manual 
-##                   17.15                   24.39
-```
-
-Fit everything:
-
-```r
-fit_all <- lm(mpg ~ ., data = mtcars)
-summary(fit_all)
-```
-
-```
-## 
-## Call:
-## lm(formula = mpg ~ ., data = mtcars)
-## 
-## Residuals:
-##    Min     1Q Median     3Q    Max 
-## -3.473 -1.379 -0.066  1.051  4.391 
-## 
-## Coefficients:
-##             Estimate Std. Error t value Pr(>|t|)  
-## (Intercept)  17.8198    16.3060    1.09    0.287  
-## cyl6         -1.6603     2.2623   -0.73    0.472  
-## cyl8          1.6374     4.3157    0.38    0.708  
-## disp          0.0139     0.0174    0.80    0.433  
-## hp           -0.0461     0.0271   -1.70    0.104  
-## drat          0.0264     1.6765    0.02    0.988  
-## wt           -3.8062     1.8466   -2.06    0.053 .
-## qsec          0.6470     0.7220    0.90    0.381  
-## vsS           1.7474     2.2727    0.77    0.451  
-## amManual      2.6173     2.0047    1.31    0.207  
-## gear          0.7640     1.4567    0.52    0.606  
-## carb          0.5094     0.9424    0.54    0.595  
-## ---
-## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-## 
-## Residual standard error: 2.58 on 20 degrees of freedom
-## Multiple R-squared:  0.882,	Adjusted R-squared:  0.816 
-## F-statistic: 13.5 on 11 and 20 DF,  p-value: 5.72e-07
+##    StudRes    Hat  CookD
+## 9   -1.251 0.2970 0.4026
+## 17   2.323 0.2296 0.5896
 ```

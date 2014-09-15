@@ -1,11 +1,93 @@
 ---
-title: "regmods-006_project"
+title: "Course Project for Regression Models"
 output:
+  pdf_document: default
   html_document:
     keep_md: yes
 ---
 
-```{r}
-library("ggplot2")
+## Executive Summary
+
+The dataset `mtcars` contains data on fuel consumption and ten aspects of automobile design and performance for 32 automobiles (1973--74 models). Linear regression analysis shows that automatic transmission vehicles from that year had worse gas mileage than manual tramission vehicles. After controlling for other factors (like weight, for example) that are also related to fuel efficiency, MPG is still lower for automatic transmission vehicles, but not by a substantial margin.
+
+(Note: due to the brevity of this report, I will not echo any R code.)
+
+```{r message=FALSE, echo=FALSE}
+# Load necessary libraries
+library("knitr")    # opts_chunk
+library("MASS")     # stepAIC
+library("car")      # influencePlot
+library("dplyr")    # mutate and select
+library("ggplot2")  # ggplot
+library("GGally")   # ggpairs
+
+# Convert factor variables.
+mtcars2 <- mtcars %>%
+    mutate(cyl = factor(cyl),
+           vs = factor(vs, levels = c(0, 1), labels = c("V", "S")),
+           am = factor(am, levels = c(0, 1), labels = c("Automatic", "Manual")),
+           gear = factor(gear, levels = c(3, 4, 5)))
+
+opts_chunk$set(echo=FALSE, fig.width=6, fig.height=6)
 ```
 
+## Exploratory data analysis
+
+To begin with, the simplest analysis is just to compare the center and spread for MPG among automatic transmission vehicles to that of manual transmission vehicles. Figure 1 in the Appendix shows a boxplot in which it is evident that MPG is lower for cars with automatic transmission.
+
+We will also be interested in associations between the variables. It seems likely, _a priori_, that many of the measurements will be correlated with MPG and with each other. There are two plots in the Appendix (Figures 2 and 3) that show these relationships, one for the collection of quantitative variables and the other relating MPG to the categorical variables. Because weight is seen to be highly correlated to many other variables, it is also included in Figure 3. (Note: With a sample size of 32, correlations are statistically signficant when $|r| > 0.349$.) MPG appears to be associated with everything. Among the covariates, weight is most strongly correlated with MPG and with just about everything else, except qsec, the quarter-mile time.
+
+## Regression modeling
+
+### mpg ~ am
+
+The simplest linear model compares transmission to MPG directly. This is just one-way ANOVA with two categories, which is mathematically equivalent to an independent samples t-test. ($F = t^2$)
+
+```{r}
+fit1 <- lm(mpg ~ am, data = mtcars2)
+fit1$coef
+```
+
+This simply says that the mean MPG for cars with automatic transmission is `r fit1$coef[1]` and that the mean MPG for manual transmission cars is `r fit1$coef[2]` more.
+
+### mpg ~ am + wt + qsec
+
+Since weight is highly correlated with mpg, we add it into the model. However, since everything else is highly correlated with weight and mpg, we would have a problem with multicollinearity if we included much more. The only additional variable that seems to give much extra predictive power to the model is qsec, which makes sense because qsec was largely uncorrelated to weight, but still somewhat correlated to mpg.
+
+```{r}
+fit2 <- lm(mpg ~ am + wt + qsec, data = mtcars2)
+summary(fit2)
+```
+
+So controlling for weight and quarter-second time, we see that manual trasmission is still predicted to increase MPG by about 3. Of course, this difference may be statistically significant, but not of much practical significance.
+
+Probably, the most helpful diagnostic plot is given by the `influencePlot` command in the `car` package. Figure 4 in the Appendix shows in one plot the studentized residuals, hat values to measure leverage, and Cook's distance to measure influence. The model is not perfect: while the data is relatively homoscedastic, the 9th data point (the Merc 230) has high leverage and some influence, and the 17th data point (the Chrysler Imperial) is not quite as high leverage, but exerts even more influence. In neither case, though, does the Cook's distance exceed 0.5.
+
+Although I believe that stepwise regression is evil, it is gratifying that a bidirectional stepwise regression algorithm (`stepAIC` from the `MASS` package) produces this very model.
+
+## Appendix
+
+```{r fig.height=3, fig.width=3}
+ggplot(data = mtcars2, aes(x = am, y = mpg)) +
+    geom_boxplot() +
+    ggtitle("Figure 1") +
+    xlab("Transmission") +
+    ylab("MPG")
+```
+
+```{r fig.width=10, fig.height=10}
+mtcars_num <- mtcars2 %>%
+    select(mpg, disp, hp, drat, wt, qsec, carb)
+mtcars_cat <- mtcars2 %>%
+    select(mpg, wt, cyl, vs, am, gear)
+ggpairs(mtcars_num, title = "Figure 2")
+```
+
+```{r fig.width=10, fig.height=10}
+ggpairs(mtcars_cat, title = "Figure 3")
+```
+
+```{r}
+influencePlot(fit2, main="Figure 4",
+                            sub="Circle size is proportial to Cook's Distance")
+```
