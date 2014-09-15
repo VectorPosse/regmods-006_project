@@ -98,7 +98,7 @@ if (window.hljs && document.readyState && document.readyState === "complete") {
 ## Residual standard error: 2.46 on 28 degrees of freedom
 ## Multiple R-squared:  0.85,   Adjusted R-squared:  0.834 
 ## F-statistic: 52.7 on 3 and 28 DF,  p-value: 1.21e-11</code></pre>
-<p>So controlling for weight and quarter-second time, we see that manual trasmission is still predicted to increase MPG by about 3. Of course, this difference may be statistically significant, but not of much practical significance.</p>
+<p>So controlling for weight and quarter-mile time, we see that manual trasmission is still predicted to increase MPG by about 3. Of course, this difference may be statistically significant, but not of much practical significance.</p>
 <p>Probably, the most helpful diagnostic plot is given by the <code>influencePlot</code> command in the <code>car</code> package. Figure 4 in the Appendix shows in one plot the studentized residuals, hat values to measure leverage, and Cook’s distance to measure influence. The model is not perfect: while the data is relatively homoscedastic, the 9th data point (the Merc 230) has high leverage and some influence, and the 17th data point (the Chrysler Imperial) is not quite as high leverage, but exerts even more influence. In neither case, though, does the Cook’s distance exceed 0.5.</p>
 <p>Although I believe that stepwise regression is evil, it is gratifying that a bidirectional stepwise regression algorithm (<code>stepAIC</code> from the <code>MASS</code> package) produces this very model.</p>
 </div>
